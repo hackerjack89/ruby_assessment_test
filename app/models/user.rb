@@ -1,5 +1,5 @@
 class User < ApplicationRecord
-  before_update :validate_kind, :if => :kind_changed?
+  validate :validate_kind, on: :update
 
   enum :kind, {
     "student": 0,
@@ -9,6 +9,8 @@ class User < ApplicationRecord
 
   has_many :enrollments
   has_many :programs, through: :enrollments
+  has_many :teaching_enrollments, foreign_key: :teacher_id, class_name: 'Enrollment' 
+  has_many :teaching_programs, -> { distinct }, through: :teaching_enrollments, source: :program
   has_many :teachers, through: :enrollments do
     def favorites 
       where( { enrollments: { favorite: true } } )
@@ -19,38 +21,24 @@ class User < ApplicationRecord
     user_id
   end
 
+  # users that have enrolled to same program
 
   def self.classmates(user)
-    joins(:enrollments).where(
-      { 
-        enrollments: {
-          program_id: user.programs.collect(&:id) 
-        }
+    includes(:enrollments).where(
+      enrollments: {
+        program_id: user.programs
       }
     )
-    .where.not(
-      {
-        enrollments: {
-          user_id: user.id
-        }
-      }
-    ).distinct
+    .where.not(id: user.id).distinct
   end
 
   def validate_kind
-    # puts "$$$$$$$$$$$$$$$$$$$$$$$$ in before update callback $$$$$$$$$$"
-    # puts "old kind_was: #{kind_was}, new kind is: #{kind}, enrollments not empty?: #{not enrollments.empty?}"
-    # puts "printing user: name: #{self.name}, id:#{self.id}, kind:#{self.kind}"
-    puts "Printing enrollments: #{Enrollment.where({teacher_id: id}).map(&:id)}"
-    # puts "Printing programs: #{programs.map(&:id)}"
-    if kind_was == "teacher" and kind == "student" and not Enrollment.where({teacher_id: id}).map(&:id).empty?
-      puts "in student if"
+    if kind_was == "teacher" and kind == "student" and not teaching_programs.empty?
+      puts "from teacher to student"
       errors.add(:kind, "Kind can not be student because is teaching in at least one program")
-      throw :abort
     elsif kind_was == "student" and kind == "teacher" and not programs.empty?
-      puts 'in teacher if'
+      puts "from student to teacher"
       errors.add(:kind, "Kind can not be teacher because is studying in at least one program")
-      throw :abort
     end
   end
 end
