@@ -34,10 +34,8 @@ class User < ApplicationRecord
 
   def validate_kind
     if kind_was == "teacher" and kind == "student" and not teaching_programs.empty?
-      puts "from teacher to student"
       errors.add(:kind, "Kind can not be student because is teaching in at least one program")
     elsif kind_was == "student" and kind == "teacher" and not programs.empty?
-      puts "from student to teacher"
       errors.add(:kind, "Kind can not be teacher because is studying in at least one program")
     end
   end
